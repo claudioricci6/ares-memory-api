@@ -1,41 +1,39 @@
-Python 3.11.2 (v3.11.2:878ead1ac1, Feb  7 2023, 10:02:41) [Clang 13.0.0 (clang-1300.0.29.30)] on darwin
-Type "help", "copyright", "credits" or "license()" for more information.
->>> import os, json
-... from typing import List, Optional, Dict, Any
-... from fastapi import FastAPI, HTTPException, Query, Depends
-... from fastapi.middleware.cors import CORSMiddleware
-... from pydantic import BaseModel
-... from functools import lru_cache
-... 
-... DATA_PATH = os.getenv("ARES_DATA_PATH", "/opt/render/project/src/ARES_memory_unificata_ext.jsonl")
-... PUBLIC_MODE = os.getenv("PUBLIC_MODE", "true").lower() == "true"
-... API_KEY = os.getenv("API_KEY", "")
-... 
-... class VideoMeta(BaseModel):
-...     resolution: Optional[str] = None
-...     fps: Optional[float] = None
-...     n_frames: Optional[float] = None
-...     duration_s: Optional[float] = None
-...     format: Optional[str] = None
-...     source_file: Optional[str] = None
-... 
-... class Metrics(BaseModel):
-...     bleeding_score: Optional[float] = None
-...     movement_economy: Optional[float] = None
-...     R: Optional[float] = None
-...     R_over_G: Optional[float] = None
-...     movement_index_delta: Optional[float] = None
-... 
-... class Record(BaseModel):
-...     dataset_version: Optional[str] = None
-...     schema_version: Optional[str] = None
-...     case_id: str
-...     step_id: int
-...     step_name: Optional[str] = None
-...     rules_text: Optional[str] = None
-...     rules_json: Optional[Dict[str, Any]] = None
-...     generated_at: Optional[str] = None
-...     fps: Optional[float] = None
+import os, json
+from typing import List, Optional, Dict, Any
+from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from functools import lru_cache
+
+DATA_PATH = os.getenv("ARES_DATA_PATH", "/opt/render/project/src/ARES_memory_unificata_ext.jsonl")
+PUBLIC_MODE = os.getenv("PUBLIC_MODE", "true").lower() == "true"
+API_KEY = os.getenv("API_KEY", "")
+
+class VideoMeta(BaseModel):
+    resolution: Optional[str] = None
+    fps: Optional[float] = None
+    n_frames: Optional[float] = None
+    duration_s: Optional[float] = None
+    format: Optional[str] = None
+    source_file: Optional[str] = None
+
+class Metrics(BaseModel):
+    bleeding_score: Optional[float] = None
+    movement_economy: Optional[float] = None
+    R: Optional[float] = None
+    R_over_G: Optional[float] = None
+    movement_index_delta: Optional[float] = None
+
+class Record(BaseModel):
+    dataset_version: Optional[str] = None
+    schema_version: Optional[str] = None
+    case_id: str
+    step_id: int
+    step_name: Optional[str] = None
+    rules_text: Optional[str] = None
+    rules_json: Optional[Dict[str, Any]] = None
+    generated_at: Optional[str] = None
+    fps: Optional[float] = None
     n_frames: Optional[float] = None
     duration_s: Optional[float] = None
     resolution: Optional[str] = None
