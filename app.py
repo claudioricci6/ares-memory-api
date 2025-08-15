@@ -1,14 +1,14 @@
 import os, json
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from functools import lru_cache
 
+# === Config ===
 DATA_PATH = os.getenv("ARES_DATA_PATH", "/opt/render/project/src/ARES_memory_unificata_ext.jsonl")
-PUBLIC_MODE = os.getenv("PUBLIC_MODE", "true").lower() == "true"
-API_KEY = os.getenv("API_KEY", "")
 
+# === Models ===
 class VideoMeta(BaseModel):
     resolution: Optional[str] = None
     fps: Optional[float] = None
@@ -44,15 +44,7 @@ class Record(BaseModel):
     video_meta: Optional[VideoMeta] = None
     metrics: Optional[Metrics] = None
 
-def check_auth(key: Optional[str] = Query(default=None, alias="key")):
-    if PUBLIC_MODE:
-        return True
-    if not API_KEY:
-        raise HTTPException(status_code=500, detail="Server misconfigured: API_KEY not set and PUBLIC_MODE is false.")
-    if key == API_KEY:
-        return True
-    raise HTTPException(status_code=401, detail="Unauthorized")
-
+# === Data loader ===
 @lru_cache(maxsize=1)
 def load_data() -> List[Dict[str, Any]]:
     if not os.path.exists(DATA_PATH):
@@ -69,17 +61,21 @@ def load_data() -> List[Dict[str, Any]]:
                 continue
     return rows
 
+# === App ===
 app = FastAPI(title="ARES Memory API", description="Read-only ARES memory (JSONL).", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
 
+# Health/Status (entrambi per evitare 404 su vecchi path)
 @app.get("/health")
+@app.get("/status")
 def health():
-    return {"ok": True, "public_mode": PUBLIC_MODE}
+    return {"ok": True, "service": "ares-memory-api", "auth": "none"}
 
-@app.get("/stats", dependencies=[Depends(check_auth)])
+# --- Endpoints pubblici (nessuna auth) ---
+@app.get("/stats")
 def stats():
     data = load_data()
     total = len(data)
@@ -87,13 +83,13 @@ def stats():
     steps = sorted({int(r.get("step_id")) for r in data if r.get("step_id") is not None})
     return {"total_records": total, "n_cases": len(cases), "n_steps": len(steps), "cases_example": cases[:10]}
 
-@app.get("/cases", response_model=List[str], dependencies=[Depends(check_auth)])
+@app.get("/cases", response_model=List[str])
 def list_cases(limit: int = 500, offset: int = 0):
     data = load_data()
     ids = sorted({str(r.get("case_id")) for r in data if r.get("case_id") is not None})
     return ids[offset: offset+limit]
 
-@app.get("/case/{case_id}", response_model=List[Record], dependencies=[Depends(check_auth)])
+@app.get("/case/{case_id}", response_model=List[Record])
 def get_case(case_id: str):
     data = load_data()
     subset = [r for r in data if str(r.get("case_id")) == case_id]
@@ -101,7 +97,7 @@ def get_case(case_id: str):
         raise HTTPException(status_code=404, detail="case_id not found")
     return subset
 
-@app.get("/case/{case_id}/step/{step_id}", response_model=Record, dependencies=[Depends(check_auth)])
+@app.get("/case/{case_id}/step/{step_id}", response_model=Record)
 def get_step(case_id: str, step_id: int):
     data = load_data()
     for r in data:
@@ -109,7 +105,7 @@ def get_step(case_id: str, step_id: int):
             return r
     raise HTTPException(status_code=404, detail="record not found")
 
-@app.get("/search", response_model=List[Record], dependencies=[Depends(check_auth)])
+@app.get("/search", response_model=List[Record])
 def search(
     q: Optional[str] = None,
     min_fps: Optional[float] = None,
@@ -145,7 +141,14 @@ def search(
 @app.get("/")
 def root():
     return {
-        "endpoints": {"/health": "status", "/stats": "dataset stats", "/cases": "list cases",
-                      "/case/{case_id}": "all steps", "/case/{case_id}/step/{step_id}": "one step", "/search": "filter"},
-        "auth": "Set PUBLIC_MODE=false and API_KEY=... to protect the API."
+        "endpoints": {
+            "/status": "status",
+            "/health": "status (alias)",
+            "/stats": "dataset stats",
+            "/cases": "list cases",
+            "/case/{case_id}": "all steps",
+            "/case/{case_id}/step/{step_id}": "one step",
+            "/search": "filter"
+        },
+        "auth": "none"
     }
